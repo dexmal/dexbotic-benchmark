@@ -77,6 +77,12 @@ docker run --gpus all --network host -v $(pwd):/workspace \
   dexbotic-benchmark \
   python evaluation/run_maniskill2_evaluation.py --config evaluation/configs/maniskill2/example_maniskill2.yaml
 ```
+Note: For LIBERO evaluation, use `example_pi0_libero.yaml` for PI0/PI05 and
+`example_dm0_libero.yaml` for DM0. Switch scenarios by setting `benchmark` to
+`libero_spatial`, `libero_goal`, `libero_object`, or `libero_10`. For CogAct,
+use the scenario-specific configs directly: `libero_spatial.yaml`,
+`libero_goal.yaml`, `libero_object.yaml`, or `libero_10.yaml`.
+
 Note: RoboTwin2.0 has 50 sub-tasks, and each sub-task has two levels of difficulty. According to the official setting of RoboTwin2.0, each subtask needs to be evaluated separately. You can modify the `task_name` and `task_config` parameters in the configuration file to select different subtasks and difficulty levels for evaluation. ref: https://robotwin-platform.github.io/leaderboard
 
 ### Viewing Results

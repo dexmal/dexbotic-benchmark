@@ -1,0 +1,15 @@
+benchmark: libero_spatial
+num_trails_per_task: 50
+num_steps_wait: 10
+seed: 7
+base_url: http://localhost:7891
+replan_step: 12
+
+send_state: true
+send_image:
+- image
+- wrist_image
+discrete_gripper: false
+use_text_template: false
+
+output_dir: "results/example_dm0_libero_spatial"
