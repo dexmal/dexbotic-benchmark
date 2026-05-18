@@ -11,6 +11,7 @@ Dexbotic Benchmark provides a comprehensive evaluation framework for robotic lea
 - **Simpler**: A framework for evaluating and reproducing real-world robot manipulation policies (e.g., RT-1, RT-1-X, Octo) in simulation under common setups (e.g., Google Robot, WidowX+Bridge)
 - **RoboTwin 2.0**: A scalable data generator and benchmark with strong domain randomization for robust bimanual robotic manipulation
 - **ManiSkill2**: A benchmark for generalizable manipulation skill learning with diverse tasks and robot embodiments
+- **VLN-CE**: A benchmark for Vision-and-Language Navigation in Continuous Environments
 
 ## Quick Start
 
@@ -76,12 +77,24 @@ docker run --gpus all --network host \
 docker run --gpus all --network host -v $(pwd):/workspace \
   dexbotic-benchmark \
   python evaluation/run_maniskill2_evaluation.py --config evaluation/configs/maniskill2/example_maniskill2.yaml
+
+# Run VLN-CE evaluation (R2R)
+docker run --gpus all \
+  --network host \
+  -e NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility \
+  -v "$(pwd)":/workspace \
+  -v /your/datasets/path/datasets/:/workspace/datasets \
+  -w /workspace \
+  dexbotic-benchmark \
+  bash scripts/env_sh/vlnce.sh \
+  evaluation/configs/vlnce/r2r_baselines/navila_eval.yaml
 ```
 Note: For LIBERO evaluation, use `example_pi0_libero.yaml` for PI0/PI05 and
 `example_dm0_libero.yaml` for DM0. Switch scenarios by setting `benchmark` to
 `libero_spatial`, `libero_goal`, `libero_object`, or `libero_10`. For CogAct,
 use the scenario-specific configs directly: `libero_spatial.yaml`,
 `libero_goal.yaml`, `libero_object.yaml`, or `libero_10.yaml`.
+
 
 Note: RoboTwin2.0 has 50 sub-tasks, and each sub-task has two levels of difficulty. According to the official setting of RoboTwin2.0, each subtask needs to be evaluated separately. You can modify the `task_name` and `task_config` parameters in the configuration file to select different subtasks and difficulty levels for evaluation. ref: https://robotwin-platform.github.io/leaderboard
 

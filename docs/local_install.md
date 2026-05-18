@@ -227,3 +227,57 @@ python evaluation/run_maniskill2_evaluation.py \
 - `PickSingleYCB-v0` - Pick single YCB object
 - `PickSingleEGAD-v0` - Pick single EGAD object
 - `PickClutterYCB-v0` - Pick from cluttered YCB objects
+
+## VLN-CE Environment
+
+### Setup
+
+```bash
+# Create conda environment for VLN-CE
+conda create -n vlnce python=3.8 -y
+conda activate vlnce
+
+# Install habitat-sim v0.17
+wget https://api.anaconda.org/download/aihabitat/habitat-sim/0.1.7/linux-64/habitat-sim-0.1.7-py3.8_headless_linux_856d4b08c1a2632626bf0d205bf46471a99502b7.tar.bz2
+conda install -y habitat-sim-0.1.7-py3.8_headless_linux_856d4b08c1a2632626bf0d205bf46471a99502b7.tar.bz2
+
+# Install habitat-lab v0.17
+cd habitat-lab
+python -m pip install -r requirements.txt
+python -m pip install "moviepy>=1.0.1" tb-nightly
+python -m pip install -r habitat_baselines/rl/ddppo/requirements.txt
+python setup.py develop --no-deps
+cd ..
+
+# Install vln-ce
+cd VLN-CE
+grep -v -E "torch|torchvision|tensorflow" requirements.txt | pip install -r /dev/stdin
+cd ..
+
+# Add missing dependencies
+pip install gitpython matplotlib flask omegaconf
+pip install numpy==1.23.0
+pip install torch==1.12.1 torchvision==0.13.1
+pip install webdataset==0.1.103
+
+# Fix gym version
+pip install "setuptools<60"
+python -m pip install "pip<24.1"
+pip install "gym<=0.21.0"
+
+# Remove the installation package
+rm habitat-sim-0.1.7-py3.8_headless_linux_856d4b08c1a2632626bf0d205bf46471a99502b7.tar.bz2
+```
+
+### Running Evaluation
+
+```bash
+# Using shell script (recommended)
+bash scripts/env_sh/vlnce.sh [path/to/config]
+
+# Or run directly with Python
+python evaluation/run_vlnce_evaluation.py --config [path/to/config]
+
+# Example: Run R2R evaluation
+python evaluation/run_vlnce_evaluation.py --config evaluation/configs/vlnce/r2r_baselines/navila_eval.yaml
+```

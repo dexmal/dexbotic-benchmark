@@ -1,0 +1,40 @@
+# VLN-CE R2R Evaluation Configuration for NaVILA in Dexbotic-Benchmark
+
+# Dataset path config 
+# [DOCKER MODE] (DEFAULT)
+# For local runs, replace "/workspace" with the absolute path to your dataset directory.
+r2r_dataset_path: /workspace/datasets/R2R_VLNCE_v1-3_preprocessed
+scene_datasets_path: /workspace/datasets/scene_data
+graphs_file_path: /workspace/datasets/connectivity_graphs.pkl
+
+BASE_TASK_CONFIG_PATH: evaluation/utils/habitat_extensions/config/vlnce_task.yaml
+# System configuration
+SIMULATOR_GPU_IDS: [0]
+TORCH_GPU_ID: 0
+NUM_ENVIRONMENTS: 1
+# Evaluation settings
+EVAL:
+    SPLIT: val_unseen
+    EPISODE_COUNT: -1
+
+# Basic experiment configuration
+policy_name: navila
+task_name: vlnce_r2r_navigation
+dataset_type: r2r
+
+# NaVILA model configuration
+model_name: navila_vlnce_r2r
+
+# Video and logging
+# video_option: ["disk"]
+output_dir: results/navila_r2r_vlnce_evaluation
+
+# Chunk processing (for parallel evaluation)
+num_chunks: 1
+chunk_idx: 0
+
+# VLA Agent Configuration
+base_url: http://localhost:5000  # VLA service endpoint URL
+replan_step: 7  # Number of steps to replan (how often to call VLA service)
+temperature: 0.0  # Generation temperature parameter
+use_text_template: false  # Whether to use text template for instructions

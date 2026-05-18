@@ -1,5 +1,5 @@
 """
-Unified policy package containing VLA agent implementations for Calvin, Simpler, Libero and ManiSkill2 projects
+Unified policy package containing VLA agent implementations for Calvin, Simpler, Libero, ManiSkill2 and VLN-CE environments
 """
 
 from .base_vla_agent import BaseVLAAgent

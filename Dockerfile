@@ -89,6 +89,8 @@ COPY calvin /app/calvin
 COPY libero /app/libero
 COPY RoboTwin /app/RoboTwin
 COPY maniskill2 /app/maniskill2
+COPY habitat-lab /app/habitat-lab
+COPY VLN-CE /app/VLN-CE
 
 # Install simpler environment
 RUN /opt/conda/bin/conda create -n simpler_env python=3.10 -y && \
@@ -151,6 +153,30 @@ RUN /bin/bash -c "source activate maniskill2_env && \
     export PYTHONPATH=\$PWD/warp_maniskill:\$PYTHONPATH && \
     python -m warp_maniskill.build_lib && \
     cd ../.."
+
+# Install VLN-CE environment
+RUN /opt/conda/bin/conda create -n vlnce python=3.8 -y && \
+    /bin/bash -c "source activate vlnce && \
+        cd /app && \
+        wget https://api.anaconda.org/download/aihabitat/habitat-sim/0.1.7/linux-64/habitat-sim-0.1.7-py3.8_headless_linux_856d4b08c1a2632626bf0d205bf46471a99502b7.tar.bz2 && \
+        conda install -y habitat-sim-0.1.7-py3.8_headless_linux_856d4b08c1a2632626bf0d205bf46471a99502b7.tar.bz2 && \
+        rm habitat-sim-0.1.7-py3.8_headless_linux_856d4b08c1a2632626bf0d205bf46471a99502b7.tar.bz2 && \
+        cd /app/habitat-lab && \
+        python -m pip install -r requirements.txt && \
+        python -m pip install 'moviepy>=1.0.1' tb-nightly -i https://mirrors.aliyun.com/pypi/simple/ && \
+        python -m pip install -r habitat_baselines/rl/ddppo/requirements.txt && \
+        python setup.py develop --no-deps && \
+        cd /app && \
+        cd /app/VLN-CE && \
+        grep -v -E 'torch|torchvision|tensorflow' requirements.txt | pip install -r /dev/stdin && \
+        cd /app && \
+        python -m pip install 'pip<24.1' && \
+        pip install setuptools==59.8.0 wheel==0.37.1 && \
+        pip install gym==0.21.0 && \
+        pip install gitpython matplotlib flask omegaconf && \
+        pip install numpy==1.23.0 && \
+        pip install torch==1.12.1 torchvision==0.13.1 && \
+        pip install webdataset==0.1.103"
 
 RUN /opt/conda/bin/conda init bash
 CMD ["bash"]

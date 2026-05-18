@@ -516,6 +516,105 @@ def save_evaluation_results(results: Dict[str, Any], output_structure: Dict[str,
             raise
 
 
+def convert_cfgnode_to_dictconfig(config) -> DictConfig:
+    """
+    Convert Habitat Config (CfgNode) to OmegaConf DictConfig
+    
+    Habitat Config (CfgNode) objects need to be converted to dictionaries
+    before they can be serialized to YAML using OmegaConf.
+    
+    Args:
+        config: Habitat Config (CfgNode) object or any config-like object
+        
+    Returns:
+        DictConfig: OmegaConf DictConfig object that can be serialized to YAML
+    """
+    def _recursive_convert(obj):
+        """Recursively convert CfgNode or nested objects to dictionary"""
+        # Handle primitive types
+        if isinstance(obj, (str, int, float, bool, type(None))):
+            return obj
+        
+        # Handle list and tuple
+        if isinstance(obj, (list, tuple)):
+            return [_recursive_convert(item) for item in obj]
+        
+        # Handle dictionary
+        if isinstance(obj, dict):
+            return {k: _recursive_convert(v) for k, v in obj.items()}
+        
+        # Handle Habitat Config (CfgNode) objects
+        # CfgNode objects can be accessed like dictionaries or objects
+        if hasattr(obj, '__dict__') or hasattr(obj, 'keys'):
+            result = {}
+            try:
+                # Try to access as dictionary-like object (CfgNode supports this)
+                if hasattr(obj, 'keys') and callable(getattr(obj, 'keys')):
+                    for key in obj.keys():
+                        if not key.startswith('_'):  # Skip private attributes
+                            try:
+                                value = obj[key]
+                                result[key] = _recursive_convert(value)
+                            except (KeyError, AttributeError, TypeError):
+                                pass
+                else:
+                    # Try to access as object attributes
+                    # Get all public attributes
+                    for key in dir(obj):
+                        if not key.startswith('_'):
+                            try:
+                                value = getattr(obj, key)
+                                # Skip callable objects (methods)
+                                if not callable(value):
+                                    result[key] = _recursive_convert(value)
+                            except (AttributeError, TypeError):
+                                pass
+            except Exception as e:
+                logger.debug(f"Error converting CfgNode object: {e}")
+                # Fallback: convert to string representation
+                return str(obj)
+            return result
+        
+        # For other types, try to convert to string or return as-is
+        try:
+            # Try numpy types
+            if hasattr(obj, 'item'):
+                return obj.item()
+            if hasattr(obj, 'tolist'):
+                return obj.tolist()
+        except Exception:
+            pass
+        
+        # Last resort: return string representation
+        return str(obj)
+    
+    try:
+        # Check if it's already a DictConfig
+        if isinstance(config, DictConfig):
+            return config
+        
+        # Convert to dictionary recursively
+        config_dict = _recursive_convert(config)
+        
+        # Create DictConfig from dictionary
+        dict_config = OmegaConf.create(config_dict)
+        logger.info("Successfully converted CfgNode to DictConfig")
+        return dict_config
+    except Exception as e:
+        logger.warning(f"Failed to convert config using recursive method: {e}")
+        # Fallback: try to use OmegaConf directly if it's already compatible
+        try:
+            return OmegaConf.create(config)
+        except Exception as e2:
+            logger.error(f"Failed to convert config to DictConfig: {e2}")
+            # Last resort: create empty config with error message
+            error_config = OmegaConf.create({
+                "error": "Failed to convert config",
+                "error_message": str(e2)
+            })
+            return error_config
+
+
 def save_evaluation_config(config: DictConfig, output_structure: Dict[str, Path]) -> None:
     """
     Save evaluation configuration to specified location

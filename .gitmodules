@@ -16,3 +16,9 @@
 [submodule "maniskill2/ManiSkill"]
 	path = maniskill2/ManiSkill
 	url = https://github.com/haosulab/ManiSkill.git
+[submodule "VLN-CE"]
+	path = VLN-CE
+	url = https://github.com/jacobkrantz/VLN-CE.git
+[submodule "habitat-lab"]
+	path = habitat-lab
+	url = https://github.com/facebookresearch/habitat-lab.git
