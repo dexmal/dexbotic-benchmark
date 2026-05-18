@@ -11,4 +11,14 @@ base_url: http://localhost:7891
 output_dir: ./result_test/robotwin2_evaluation
 cameras: "head_camera_rgb,left_camera_rgb,right_camera_rgb"
 action_horizon: 8
+# legacy: multipart /process_frame, compatible with CogACT-style servers.
+# v1: JSON /v1/infer, supports state input for Pi0/DM0/OFT-style policies.
+api_style: legacy
+# relative/delta are converted to qpos using current_state in the evaluator.
+# absolute is executed directly and should be used for Pi0/DM0-style v1 policies.
 action_mode: relative
+# Optional v1 sampling override:
+# sampling:
+#   num_steps: 10
+#   cfg_scale: 1.5
+#   seed: 0

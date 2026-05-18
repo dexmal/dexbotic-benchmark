@@ -25,4 +25,5 @@ fi
 echo "[INFO] Using configuration file: $config_path"
 
 # Execute evaluation
-printf 'N\n' | python $PROJECT_ROOT/evaluation/run_libero_evaluation.py --config ${config_path}
+config_name="$(basename "${config_path%.*}")"
+printf 'N\n' | python $PROJECT_ROOT/evaluation/run_libero_evaluation.py --config ${config_path} --set output_dir "results/${config_name}_$(date +%Y%m%d_%H%M%S)"

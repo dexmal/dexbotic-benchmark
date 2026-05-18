@@ -24,7 +24,16 @@ def get_model(usr_args):  # from deploy_policy.yml and eval.sh (overrides)
         camera_names = camera_names.split(",")
     action_horizon = usr_args.get("action_horizon", 8)
     action_mode = usr_args.get("action_mode", "relative")
-    client = RoboTwin2VLAAgent(usr_args["base_url"], camera_names, action_horizon, action_mode)
+    api_style = usr_args.get("api_style", "legacy")
+    sampling = usr_args.get("sampling", None)
+    client = RoboTwin2VLAAgent(
+        usr_args["base_url"],
+        camera_names,
+        action_horizon,
+        action_mode,
+        api_style=api_style,
+        sampling=sampling,
+    )
     return client
 
 
@@ -45,14 +54,16 @@ def eval(TASK_ENV, model: RoboTwin2VLAAgent, observation):
     actions = model.get_action(
         instruction=instruction, 
         rgbs=rgbs,
-
+        state=obs["current_state"],
     )  # Get Action according to observation chunk
-    if model.action_mode == "relative":
+    if model.action_mode == "absolute":
+        pass
+    elif model.action_mode == "relative":
         actions = model.convert_relative_to_absolute_action(
             state=obs["current_state"], 
             action_chunk=actions,
         )
-    else: # delta
+    else:  # delta
         actions = model.convert_delta_to_absolute_action(
             state=obs["current_state"], 
             action_chunk=actions,
@@ -66,4 +77,4 @@ def eval(TASK_ENV, model: RoboTwin2VLAAgent, observation):
 
 def reset_model(model):  
     # Clean the model cache at the beginning of every evaluation episode, such as the observation window
-    pass
+    model.reset()
