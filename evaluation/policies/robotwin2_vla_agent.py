@@ -1,4 +1,5 @@
 import base64
+import json
 import logging
 
 import requests
@@ -52,17 +53,21 @@ class RoboTwin2VLAAgent:
         if self.api_style == "v1":
             raw_action = self._get_action_v1(instruction, encoded_images, state)
         else:
-            raw_action = self._get_action_legacy(instruction, encoded_images)
+            raw_action = self._get_action_legacy(instruction, encoded_images, state)
         action_chunk = np.array(raw_action)
 
         if self.action_horizon > 0 and len(action_chunk) > self.action_horizon:
             action_chunk = action_chunk[:self.action_horizon]
         return action_chunk
 
-    def _get_action_legacy(self, instruction: str, encoded_images: list[bytes]):
+    def _get_action_legacy(self, instruction: str, encoded_images: list[bytes], state):
+        data = {"text": instruction, "temperature": 1.0}
+        if state is not None:
+            data["states"] = json.dumps(np.asarray(state, dtype=np.float32).tolist())
+
         ret = requests.post(
             self.server_url,
-            data={"text": instruction, "temperature": 1.0},
+            data=data,
             files=[("image", _img) for _img in encoded_images],
         )
         ret.raise_for_status()
