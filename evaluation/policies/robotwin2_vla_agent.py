@@ -49,7 +49,13 @@ class RoboTwin2VLAAgent:
             logger.warning("Failed to notify VLA service /v1/reset: %s", exc)
 
     def get_action(self, instruction: str, rgbs: np.ndarray, state=None) -> np.ndarray:
-        encoded_images = [cv2.imencode('.png', rgb)[1].tobytes() for rgb in rgbs]
+        encoded_images = [
+            cv2.imencode(
+                ".png",
+                cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR),
+            )[1].tobytes()
+            for rgb in rgbs
+        ]
         if self.api_style == "v1":
             raw_action = self._get_action_v1(instruction, encoded_images, state)
         else:
@@ -136,11 +142,17 @@ class RoboTwin2VLAAgent:
         return absolute_action
 
 
-def unittest_request_cogact(): 
+def unittest_request_cogact():
     image = np.ones((480, 640, 3), dtype=np.uint8)
     prompt = "Do something."
     url = "http://localhost:7891/process_frame"
-    encoded_images = [cv2.imencode('.png', image)[1].tobytes() for image in [image, ]]
+    encoded_images = [
+        cv2.imencode(
+            ".png",
+            cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR),
+        )[1].tobytes()
+        for rgb in [image]
+    ]
     ret = requests.post(
         url,
         data={"text": prompt, "temperature": 1.0},
