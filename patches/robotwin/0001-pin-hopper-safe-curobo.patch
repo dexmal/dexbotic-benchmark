@@ -1,0 +1,36 @@
+diff --git a/script/_install.sh b/script/_install.sh
+--- a/script/_install.sh
++++ b/script/_install.sh
+@@ -50,6 +50,7 @@
+ echo "Installing Curobo ..."
+ cd envs
+-git clone https://github.com/NVlabs/curobo.git
++git clone https://github.com/gpulost/curobo.git
+ cd curobo
++git checkout --detach 3490ef46d4ffbbf6756b91fb13b68215828533b0
+ pip install -e . --no-build-isolation
+ cd ../..
+diff --git a/policy/DexVLA/Eval_Tiny_DexVLA_requirements.txt b/policy/DexVLA/Eval_Tiny_DexVLA_requirements.txt
+--- a/policy/DexVLA/Eval_Tiny_DexVLA_requirements.txt
++++ b/policy/DexVLA/Eval_Tiny_DexVLA_requirements.txt
+@@ -176,7 +176,7 @@ networkx @ file:///croot/networkx_1717597493534/work
+ numcodecs==0.13.1
+ numpy==1.26.4
+ numpy-quaternion==2024.0.9
+--e git+https://github.com/NVlabs/curobo.git@cca894de9ec74e77a0a4071319c81958991a9108#egg=nvidia_curobo
++-e git+https://github.com/gpulost/curobo.git@3490ef46d4ffbbf6756b91fb13b68215828533b0#egg=nvidia_curobo
+ oauthlib==3.3.1
+ open3d==0.18.0
+ openai==1.93.0
+diff --git a/policy/TinyVLA/Eval_Tiny_DexVLA_requirements.txt b/policy/TinyVLA/Eval_Tiny_DexVLA_requirements.txt
+--- a/policy/TinyVLA/Eval_Tiny_DexVLA_requirements.txt
++++ b/policy/TinyVLA/Eval_Tiny_DexVLA_requirements.txt
+@@ -176,7 +176,7 @@ networkx @ file:///croot/networkx_1717597493534/work
+ numcodecs==0.13.1
+ numpy==1.26.4
+ numpy-quaternion==2024.0.9
+--e git+https://github.com/NVlabs/curobo.git@cca894de9ec74e77a0a4071319c81958991a9108#egg=nvidia_curobo
++-e git+https://github.com/gpulost/curobo.git@3490ef46d4ffbbf6756b91fb13b68215828533b0#egg=nvidia_curobo
+ oauthlib==3.3.1
+ open3d==0.18.0
+ openai==1.93.0
