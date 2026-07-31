@@ -126,6 +126,8 @@ conda create -n RoboTwin python=3.10 -y
 conda activate RoboTwin
 
 # Install RoboTwin2
+# Apply the benchmark-maintained Hopper-safe CuRobo pin.
+git -C RoboTwin apply ../patches/robotwin/0001-pin-hopper-safe-curobo.patch
 cd RoboTwin
 export TORCH_CUDA_ARCH_LIST='7.5;8.0;8.9;9.0' && \
 bash script/_install.sh

@@ -12,7 +12,7 @@ RUN sed -i -e "s/archive.ubuntu.com/mirrors.tuna.tsinghua.edu.cn/g" /etc/apt/sou
     apt-get install -y curl  && \
     apt-get install -y apt-utils \
     tzdata \
-    git wget curl vim unzip ffmpeg \
+    git wget curl vim unzip ffmpeg patch \
     build-essential cmake pkg-config \
     llvm meson \
     libegl1-mesa \
@@ -88,6 +88,7 @@ COPY simpler /app/simpler
 COPY calvin /app/calvin
 COPY libero /app/libero
 COPY RoboTwin /app/RoboTwin
+COPY patches /app/patches
 COPY maniskill2 /app/maniskill2
 COPY habitat-lab /app/habitat-lab
 COPY VLN-CE /app/VLN-CE
@@ -122,7 +123,8 @@ RUN /opt/conda/bin/conda create -n libero_env python=3.8 -y && \
         pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu121 -i https://pypi.tuna.tsinghua.edu.cn/simple/ && \
         cd .."
 
-# Install RoboTwin environment
+# Install RoboTwin environment with the benchmark-maintained CuRobo pin.
+RUN patch -d RoboTwin -p1 < patches/robotwin/0001-pin-hopper-safe-curobo.patch
 RUN /opt/conda/bin/conda create -n RoboTwin python=3.10 -y && \
 /bin/bash -c "source activate RoboTwin && \
     cd RoboTwin && \
