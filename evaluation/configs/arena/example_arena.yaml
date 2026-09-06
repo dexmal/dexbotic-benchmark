@@ -1,0 +1,64 @@
+# VLA-Arena task selection
+# "all" evaluates every non-LIBERO suite; task_level "all" evaluates L0-L2.
+task_suite_name: all
+task_level: all
+# Run L0, L1, and L2 concurrently in three spawned worker processes.
+parallelized: false
+num_trials_per_task: 10
+num_steps_wait: 10
+seeds: [7, 42, 1000]
+
+# Environment and official robustness controls
+env_img_res: 256
+# MuJoCo 3.x runtimes require this robosuite mj_fullM compatibility patch.
+apply_mujoco3_patch: true
+add_noise: false
+adjust_light: false
+randomize_color: false
+camera_offset: false
+safety: false
+
+# Set this to true only for an explicit packaged .pruned_init experiment.
+use_pruned_init: false
+init_state_selection_mode: first
+init_state_offset: 0
+init_state_offset_random: false
+# Legacy Arena services expect the raw VLA-Arena camera arrays.
+rotate_images_180: false
+
+# VLA-Arena inference service
+base_url: http://localhost:7891
+# Legacy services expose a multipart/form-data POST /process_frame endpoint.
+api_style: legacy
+# The legacy VLA-Arena service returns a 20-action chunk by default; execute the
+# first 10 actions before requesting a new chunk.
+replan_step: 10
+send_state: true
+send_image:
+  - image
+  - wrist_image
+discrete_gripper: false
+
+discrete_action_dims: [0, 1, 2, 6]
+discrete_action_threshold: 0.5
+clip_actions: false
+use_text_template: false
+
+# Legacy multipart request schema
+batch_size: 1
+speed: "0.5"
+action_horizon: 20
+request_timeout: 30
+
+# Instruction robustness
+replacements_file: VLA-Arena/language_replacements
+use_replacements: false
+replacement_probability: 1.0
+replacement_level: 1
+
+# Outputs
+save_video_mode: first_success_failure
+video_fps: 30
+result_json_path: default
+output_dir: experiments/eval_results
+log_level: INFO

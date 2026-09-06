@@ -80,6 +80,163 @@ python evaluation/run_libero_evaluation.py \
   --set output_dir [path/to/output]
 ```
 
+## VLA-Arena Environment
+
+VLA-Arena runs locally in a dedicated conda environment and calls the same
+external Dexbotic model service used by LIBERO. The setup mirrors the runtime
+baseline of `docker.io/dexmal/dexbotic_benchmark:latest`:
+Ubuntu 22.04, CUDA 12.1, and NVIDIA EGL rendering. VLA-Arena additionally
+requires Python 3.11, NumPy 1.26.4, and robosuite 1.5.1.
+
+### Setup
+
+```bash
+# Install the system libraries used by the reference environment.
+sudo apt-get update
+sudo apt-get install -y \
+  build-essential \
+  cmake \
+  pkg-config \
+  ffmpeg \
+  libegl1 \
+  libegl1-mesa \
+  libegl1-mesa-dev \
+  libgl1 \
+  libglvnd-dev \
+  libosmesa6-dev \
+  libsm6 \
+  libxext6 \
+  libxrender-dev
+
+# Initialize the VLA-Arena submodule and its packaged benchmark assets.
+git submodule update --init --recursive arena
+
+# Create the local Arena environment.
+conda create -n arena python=3.11 pip -y
+conda activate arena
+python -m pip install --upgrade pip setuptools wheel
+
+# Match the CUDA 12.1 PyTorch runtime used by the reference environment.
+python -m pip install torch==2.1.0 \
+  --index-url https://download.pytorch.org/whl/cu121
+
+# Install VLA-Arena and the Dexbotic evaluator dependencies.
+python -m pip install -e arena
+python -m pip install \
+  omegaconf \
+  opencv-python-headless \
+  requests \
+  tqdm \
+  Pillow \
+  PyYAML \
+  imageio-ffmpeg
+
+# Persist the headless MuJoCo rendering configuration in this environment.
+conda env config vars set -n arena \
+  MUJOCO_GL=egl \
+  PYOPENGL_PLATFORM=egl \
+  EGL_PLATFORM=device
+conda deactivate
+conda activate arena
+```
+
+The machine needs a working NVIDIA driver for MuJoCo EGL rendering. CUDA is not
+used for model inference in this environment; the evaluator sends observations
+to the external service configured by `base_url`.
+
+### Running Evaluation
+
+```bash
+# Run with the example configuration.
+conda activate arena
+python3 evaluation/run_arena_evaluation.py \
+  --config evaluation/configs/arena/example_arena.yaml
+
+# Override configuration parameters. --set may be repeated.
+python3 evaluation/run_arena_evaluation.py \
+  --config evaluation/configs/arena/example_arena.yaml \
+  --set task_suite_name extrapolation_unseen_objects \
+  --set task_level 2 \
+  --set base_url http://localhost:7891 \
+  --set output_dir results/arena_unseen_objects_l2
+
+# Run L0, L1, and L2 in three evaluator processes against one model service.
+python3 evaluation/run_arena_evaluation.py \
+  --config evaluation/configs/arena/safety_dynamic_obstacles.yaml \
+  --set task_level all \
+  --set parallelized true \
+  --set base_url http://localhost:7891 \
+  --set output_dir results/arena_safety_dynamic_parallel
+```
+
+The main Arena options are:
+
+- `task_suite_name`: one suite name, a YAML list of suite names, or `all`. The
+  `all` value evaluates the eleven Arena suites and excludes the upstream
+  LIBERO compatibility suites.
+- `task_level`: `0`, `1`, `2`, or `all` for all three difficulty levels.
+- `parallelized`: when `true`, requires `task_level: all` and evaluates L0, L1,
+  and L2 concurrently in three spawned processes. Per-level artifacts are kept
+  under `output_dir/parallel_levels`, while merged results retain the standard
+  output layout. It defaults to `false`.
+- `num_trials_per_task`: number of episodes per task and seed.
+- `seeds`: YAML list of evaluation seeds. For a CLI override, use a
+  comma-separated value such as `--set seeds 7,42,1000`.
+- `base_url`: URL of the external Dexbotic model server.
+- `output_dir`: directory in which evaluation artifacts are written.
+
+The example configuration evaluates all eleven suites at L0-L2 with seeds 7,
+42, and 1000.
+
+Each run writes `results.json`, `leaderboard.json`, the resolved `config.yaml`,
+logs, and selected rollout videos under `output_dir`. Multi-seed runs also
+write one `seed_<seed>` directory per seed and a timestamped
+`batch_summary_<timestamp>.json` containing per-seed and aggregate SR/CC
+statistics. Cumulative cost applies to safety suites.
+
+### Parallel Level Execution
+
+With `parallelized: true`, the evaluator creates one spawned process for each
+of L0, L1, and L2. Each process owns its simulator, Python random state,
+evaluator instance, logger, and per-level output directory. The workers do not
+modify shared simulator state. Their only shared external dependency is the
+model service selected by `base_url`.
+
+All three workers send requests to that same service concurrently. Therefore,
+parallel evaluation requires a server that:
+
+- supports multiple evaluator clients without mixing requests or responses;
+- has memory/history disabled, because the current evaluator request schema
+  does not provide a distinct session ID for each level worker;
+- uses the intended model code, checkpoint, robot transform, normalization
+  statistics, and request defaults; and
+- can sustain three request streams within `request_timeout`.
+
+Parallel execution preserves the benchmark task and environment semantics, but
+it does not guarantee byte-identical model trajectories. A stochastic backend
+that draws from one process-global RNG consumes samples in request-arrival
+order, which changes under concurrency. For exact serial/parallel alignment,
+the client and server would need request-local deterministic sampling. The
+current Arena configuration does not expose such an option, so use serial
+evaluation when strict trajectory reproducibility is required.
+
+### Arena Troubleshooting
+
+- A platform status of `Killed` with exit code 143 means the evaluator received
+  `SIGTERM`. Inspect platform events or the submitting controller; this is not
+  by itself evidence of a Python or simulator failure. Partial per-level
+  outputs remain under `output_dir/parallel_levels`.
+- If requests succeed but every rollout reaches 300 steps with zero success,
+  rerun the same workload with `parallelized: false`. If the serial run also
+  fails, check the model checkpoint, server transform and normalization, and
+  request-field handling before investigating evaluator concurrency.
+- If serial succeeds but parallel differs, check server-side global sampling
+  RNG, default-session memory, request timeouts, and capacity. Exact alignment
+  requires request-local sampling seeds.
+- `use_pruned_init: true` selects packaged initial states and is an explicit
+  experiment, not a general remedy for a model-service mismatch. The default
+  `false` follows seeded `env.reset()` behavior.
+
 ## CALVIN Environment
 
 ### Setup

@@ -91,6 +91,7 @@ COPY RoboTwin /app/RoboTwin
 COPY maniskill2 /app/maniskill2
 COPY habitat-lab /app/habitat-lab
 COPY VLN-CE /app/VLN-CE
+COPY arena /app/arena
 
 # Install simpler environment
 RUN /opt/conda/bin/conda create -n simpler_env python=3.10 -y && \
@@ -177,6 +178,22 @@ RUN /opt/conda/bin/conda create -n vlnce python=3.8 -y && \
         pip install numpy==1.23.0 && \
         pip install torch==1.12.1 torchvision==0.13.1 && \
         pip install webdataset==0.1.103"
+
+# Install VLA-Arena environment
+RUN /opt/conda/bin/conda create -n arena python=3.11 pip=25.3 -y && \
+    /opt/conda/bin/conda run -n arena python -m pip install \
+        torch==2.1.0 \
+        --index-url https://download.pytorch.org/whl/cu121 && \
+    /opt/conda/bin/conda run -n arena python -m pip install -e /app/arena && \
+    /opt/conda/bin/conda run -n arena python -m pip install \
+        omegaconf \
+        opencv-python-headless==4.11.0.86 \
+        requests \
+        tqdm \
+        Pillow
+
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics \
+    PATH=/opt/conda/envs/arena/bin:$PATH
 
 RUN /opt/conda/bin/conda init bash
 CMD ["bash"]

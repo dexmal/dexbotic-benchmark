@@ -1,6 +1,6 @@
 # Dexbotic Benchmark
 
-A unified robot benchmarking framework that supports automated evaluation of CALVIN, LIBERO, Simpler, RoboTwin 2.0, and ManiSkill2 environments.
+A unified robot benchmarking framework that supports automated evaluation of CALVIN, LIBERO, VLA-Arena, Simpler, RoboTwin 2.0, ManiSkill2, and VLN-CE environments.
 
 ## Overview
 
@@ -8,6 +8,7 @@ Dexbotic Benchmark provides a comprehensive evaluation framework for robotic lea
 
 - **CALVIN**: A large-scale dataset and benchmark for learning long-horizon manipulation tasks
 - **LIBERO**: A benchmark for learning robotic manipulation from human demonstrations
+- **VLA-Arena**: A benchmark for evaluating VLA safety, distractor robustness, extrapolation, and long-horizon behavior across L0-L2 difficulty levels
 - **Simpler**: A framework for evaluating and reproducing real-world robot manipulation policies (e.g., RT-1, RT-1-X, Octo) in simulation under common setups (e.g., Google Robot, WidowX+Bridge)
 - **RoboTwin 2.0**: A scalable data generator and benchmark with strong domain randomization for robust bimanual robotic manipulation
 - **ManiSkill2**: A benchmark for generalizable manipulation skill learning with diverse tasks and robot embodiments
@@ -19,7 +20,8 @@ Dexbotic Benchmark provides a comprehensive evaluation framework for robotic lea
 
 **System Requirements:**
 - A machine equipped with an NVIDIA GPU (single GPU recommended; tested on 2080Ti, A100, H100, and 4090)
-- Docker with GPU support
+- Docker with GPU support for containerized benchmarks
+- Conda and an NVIDIA driver for local VLA-Arena evaluation
 
 ```bash
 # Clone the repository
@@ -36,7 +38,7 @@ For users who prefer containerized deployment, you can use Docker to run the eva
 
 
 ```bash
-docker pull dexmal/dexbotic_benchmark
+docker pull docker.io/dexmal/dexbotic_benchmark:latest
 ```
 
 ### Run with Docker
@@ -46,18 +48,18 @@ docker pull dexmal/dexbotic_benchmark
 ```bash
 # Run CALVIN evaluation
 docker run --gpus all --network host -v $(pwd):/workspace \
-  dexbotic-benchmark \
+  docker.io/dexmal/dexbotic_benchmark:latest \
   bash /workspace/scripts/env_sh/calvin.sh /workspace/evaluation/configs/calvin/example_cavin.yaml
 
 # Run LIBERO evaluation
 docker run --gpus all --network host -v $(pwd):/workspace \
-  dexmal/dexbotic_benchmark \
+  docker.io/dexmal/dexbotic_benchmark:latest \
   bash /workspace/scripts/env_sh/libero.sh /workspace/evaluation/configs/libero/example_libero.yaml
 
 # Run Simpler evaluation
 docker run --gpus all --network host -v $(pwd):/workspace\
   -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPABILITIES=all \
-  dexmal/dexbotic_benchmark \
+  docker.io/dexmal/dexbotic_benchmark:latest \
   bash scripts/env_sh/simpler.sh evaluation/configs/simpler/example_simpler.yaml
 
 # Run RoboTwin evaluation
@@ -70,12 +72,12 @@ docker run --gpus all --network host \
   -v $(pwd)/scripts:/app/scripts \
   -v $(pwd)/result_test:/app/result_test \
   -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics \
-  dexmal/dexbotic_benchmark \
+  docker.io/dexmal/dexbotic_benchmark:latest \
   bash scripts/env_sh/robotwin2.sh evaluation/configs/robotwin2/example_robotwin2.yaml
 
 # Run ManiSkill2 evaluation
 docker run --gpus all --network host -v $(pwd):/workspace \
-  dexbotic-benchmark \
+  docker.io/dexmal/dexbotic_benchmark:latest \
   python evaluation/run_maniskill2_evaluation.py --config evaluation/configs/maniskill2/example_maniskill2.yaml
 
 # Run VLN-CE evaluation (R2R)
@@ -85,9 +87,23 @@ docker run --gpus all \
   -v "$(pwd)":/workspace \
   -v /your/datasets/path/datasets/:/workspace/datasets \
   -w /workspace \
-  dexbotic-benchmark \
+  docker.io/dexmal/dexbotic_benchmark:latest \
   bash scripts/env_sh/vlnce.sh \
   evaluation/configs/vlnce/r2r_baselines/navila_eval.yaml
+
+# Run VLA-Arena evaluation
+docker run --gpus all --network host -v $(pwd):/workspace -w /workspace \
+  docker.io/dexmal/dexbotic_benchmark:latest \
+  python3 evaluation/run_arena_evaluation.py \
+  --config evaluation/configs/arena/example_arena.yaml
+
+# Run VLA-Arena L0/L1/L2 concurrently
+docker run --gpus all --network host -v $(pwd):/workspace -w /workspace \
+  docker.io/dexmal/dexbotic_benchmark:latest \
+  python3 evaluation/run_arena_evaluation.py \
+  --config evaluation/configs/arena/example_arena.yaml \
+  --set task_level all \
+  --set parallelized true
 ```
 Note: For LIBERO evaluation, use `example_pi0_libero.yaml` for PI0/PI05 and
 `example_dm0_libero.yaml` for DM0. Switch scenarios by setting `benchmark` to
@@ -95,6 +111,7 @@ Note: For LIBERO evaluation, use `example_pi0_libero.yaml` for PI0/PI05 and
 use the scenario-specific configs directly: `libero_spatial.yaml`,
 `libero_goal.yaml`, `libero_object.yaml`, or `libero_10.yaml`.
 
+Note: The Arena evaluator uses the same external Dexbotic model-server boundary as LIBERO. Select suites with `task_suite_name`, difficulty with `task_level`, and repeatable evaluation seeds with `seeds`. Parallel workers share the configured model service, and server-global sampling RNG prevents exact serial/parallel trajectory reproduction. For native local setup and troubleshooting, see the [VLA-Arena installation and evaluation guide](docs/local_install.md#vla-arena-environment).
 
 Note: RoboTwin2.0 has 50 sub-tasks, and each sub-task has two levels of difficulty. According to the official setting of RoboTwin2.0, each subtask needs to be evaluated separately. You can modify the `task_name` and `task_config` parameters in the configuration file to select different subtasks and difficulty levels for evaluation. ref: https://robotwin-platform.github.io/leaderboard
 

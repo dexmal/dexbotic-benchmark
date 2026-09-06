@@ -7,6 +7,9 @@
 [submodule "libero"]
 	path = libero
 	url = https://github.com/Lifelong-Robot-Learning/LIBERO.git
+[submodule "arena"]
+	path = arena
+	url = https://github.com/PKU-Alignment/VLA-Arena.git
 [submodule "RoboTwin"]
 	path = RoboTwin
 	url = https://github.com/RoboTwin-Platform/RoboTwin.git
