@@ -1,0 +1,29 @@
+benchmark: RoboDojo
+task_name: stack_bowls
+eval_num: native
+seeds:
+  - 0
+  - 1
+  - 2
+
+policy_name: vla_server
+deploy_policy_name: demo_policy
+ckpt: demo
+action_type: joint
+
+base_url: http://localhost:7891
+endpoint: /process_frame
+api_style: legacy
+temperature: 1.0
+replan_step: 15
+action_horizon: 15
+camera_names: []
+
+record_videos: false
+# Restart Isaac Sim between seeds so native PhysX/RTX resources cannot
+# accumulate across the full seed matrix. Use lane only for validated tasks.
+simulation_app_scope: seed
+native_retries: 3
+retry_delay_seconds: 10
+
+output_dir: results/example_dm05_robodojo

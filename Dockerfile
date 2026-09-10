@@ -40,7 +40,10 @@ RUN /opt/conda/bin/conda config --add channels https://mirrors.tuna.tsinghua.edu
 ENV PATH=/opt/conda/bin:$PATH
 
 # Install Vulkan libraries
-RUN apt-get update && apt-get install -y libvulkan1 mesa-vulkan-drivers vulkan-tools libglvnd-dev
+RUN apt-get update && apt-get install -y \
+    libvulkan1 mesa-vulkan-drivers vulkan-tools libglvnd-dev \
+    ninja-build libglu1-mesa libglib2.0-0 libx11-6 libice6 \
+    libxrandr2 libxi6 libxcursor1 libxinerama1 libxt6
 RUN mkdir -p /usr/share/vulkan/icd.d \
              /usr/share/glvnd/egl_vendor.d \
              /etc/vulkan/implicit_layer.d && \
@@ -92,6 +95,7 @@ COPY maniskill2 /app/maniskill2
 COPY habitat-lab /app/habitat-lab
 COPY VLN-CE /app/VLN-CE
 COPY arena /app/arena
+COPY robodojo /app/robodojo
 
 # Install simpler environment
 RUN /opt/conda/bin/conda create -n simpler_env python=3.10 -y && \
@@ -122,6 +126,54 @@ RUN /opt/conda/bin/conda create -n libero_env python=3.8 -y && \
         pip install -e . && \
         pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu121 -i https://pypi.tuna.tsinghua.edu.cn/simple/ && \
         cd .."
+
+# Install RoboDojo in its own Python 3.11 environment.
+RUN /opt/conda/bin/conda create -n RoboDojo python=3.11 -y && \
+    /opt/conda/bin/conda run --no-capture-output -n RoboDojo /bin/bash -c "\
+        cd /app/robodojo && \
+        export PIP_USER=0 PYTHONNOUSERSITE=1 FORCE_CUDA=1 && \
+        export TORCH_CUDA_ARCH_LIST='7.0;7.5;8.0;8.6;8.9;9.0+PTX' && \
+        python -m pip install --upgrade pip && \
+        python -m pip install -r scripts/requirements.txt && \
+        python -m pip install \
+            opencv-python-headless==4.11.0.86 \
+            pillow \
+            matplotlib \
+            scipy==1.15.3 \
+            scikit-learn && \
+        python -m pip install \
+            numpy==1.26.0 \
+            typing_extensions==4.12.2 \
+            filelock==3.13.1 && \
+        python -m pip install \
+            torch==2.7.0 \
+            torchvision==0.22.0 \
+            torchaudio==2.7.0 \
+            --index-url https://download.pytorch.org/whl/cu128 && \
+        python -m pip install 'isaacsim[all,extscache]==5.1.0' \
+            --extra-index-url https://pypi.nvidia.com && \
+        cd third_party/IsaacLab && \
+        ./isaaclab.sh --install none && \
+        cd ../curobo && \
+        (python -m pip uninstall -y nvidia-curobo curobo 2>/dev/null || true) && \
+        python -m pip install -e '.[cu12]' --no-build-isolation && \
+        python -m pip install \
+            numpy==1.26.0 \
+            packaging==23.0 \
+            typing_extensions==4.12.2 \
+            filelock==3.13.1 \
+            websockets==13.1 \
+            click==8.1.7 \
+            psutil==5.9.8 \
+            wheel==0.45.1 \
+            starlette==0.45.3 \
+            scipy==1.15.3 \
+            warp-lang==1.11.0 \
+            'onnx>=1.18,<1.22' \
+            'ipython<9' \
+            virtualenv==20.30.0 && \
+        (python -m pip uninstall -y python-discovery 2>/dev/null || true)" && \
+    find /app/robodojo -name .git -prune -exec rm -rf {} +
 
 # Install RoboTwin environment
 RUN /opt/conda/bin/conda create -n RoboTwin python=3.10 -y && \
@@ -196,4 +248,11 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics \
     PATH=/opt/conda/envs/arena/bin:$PATH
 
 RUN /opt/conda/bin/conda init bash
+
+# Avoid loading both the baked and NVIDIA Container Toolkit Vulkan ICDs. The
+# latter matches the host driver and is present whenever the image is run with
+# --gpus and NVIDIA_DRIVER_CAPABILITIES=all.
+ENV VK_ICD_FILENAMES=/etc/vulkan/icd.d/nvidia_icd.json \
+    VK_DRIVER_FILES=/etc/vulkan/icd.d/nvidia_icd.json
+
 CMD ["bash"]

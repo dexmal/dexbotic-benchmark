@@ -237,6 +237,67 @@ evaluation when strict trajectory reproducibility is required.
   experiment, not a general remedy for a model-service mismatch. The default
   `false` follows seeded `env.reset()` behavior.
 
+## RoboDojo Environment
+
+### Setup
+
+Initialize the RoboDojo submodule, download its assets, and install its local
+runtime from the repository root. The asset steps below follow the
+[official RoboDojo installation guide](https://robodojo-benchmark.com/doc/usage/install-and-download/).
+
+```bash
+git submodule update --init --recursive robodojo
+bash robodojo/scripts/install.sh -i
+
+# The official asset downloader requires Git LFS. On Ubuntu:
+sudo apt-get install git-lfs
+git lfs install
+
+# Run RoboDojo's official download and path-generation steps from its root.
+(
+  cd robodojo
+  bash scripts/init_assets.sh
+  python utils/update_embodiment_config_path.py
+)
+```
+
+### Running Evaluation
+
+```bash
+# Evaluate the task selected by `task_name` in the YAML
+bash scripts/env_sh/robodojo.sh \
+  evaluation/configs/robodojo/example_robodojo.yaml
+
+# One-task smoke run without changing the YAML
+python evaluation/run_robodojo_evaluation.py \
+  --config evaluation/configs/robodojo/example_robodojo.yaml \
+  --set task_name stack_bowls \
+  --set seeds 0 \
+  --set eval_num 1
+```
+
+The default adapter uses the legacy multipart `/process_frame` endpoint with a
+14D joint state/action, action horizon 15, temperature 1.0, and a 120-second
+request timeout. WebSocket reset events clear only local adapter state; they
+are not forwarded to the HTTP inference service.
+
+By default, the evaluator runs each seed in a separate Isaac SimulationApp
+process. This bounds native PhysX/RTX resource accumulation while the local
+policy bridge and remote inference service stay warm. Set
+`simulation_app_scope: lane` only for tasks whose persistent-process memory
+behavior has been validated. Every episode still constructs and closes a fresh
+`EvalEnv` and USD stage.
+
+cuRobo planner reuse is opt-in and is disabled by default. Enable it for a
+persistent lane with:
+
+```bash
+export ROBODOJO_CACHE_CUROBO_PLANNERS=1
+```
+
+The cache is process-local and keyed by planner YAML, joints, timestep, and
+table height; unset the variable to preserve the original planner lifecycle.
+
 ## CALVIN Environment
 
 ### Setup

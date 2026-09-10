@@ -25,3 +25,6 @@
 [submodule "habitat-lab"]
 	path = habitat-lab
 	url = https://github.com/facebookresearch/habitat-lab.git
+[submodule "robodojo"]
+	path = robodojo
+	url = https://github.com/RoboDojo-Benchmark/RoboDojo.git

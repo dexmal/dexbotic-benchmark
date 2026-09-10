@@ -1,6 +1,6 @@
 # Dexbotic Benchmark
 
-A unified robot benchmarking framework that supports automated evaluation of CALVIN, LIBERO, VLA-Arena, Simpler, RoboTwin 2.0, ManiSkill2, and VLN-CE environments.
+A unified robot benchmarking framework that supports automated evaluation of CALVIN, LIBERO, VLA-Arena, RoboDojo, Simpler, RoboTwin 2.0, ManiSkill2, and VLN-CE environments.
 
 ## Overview
 
@@ -9,6 +9,7 @@ Dexbotic Benchmark provides a comprehensive evaluation framework for robotic lea
 - **CALVIN**: A large-scale dataset and benchmark for learning long-horizon manipulation tasks
 - **LIBERO**: A benchmark for learning robotic manipulation from human demonstrations
 - **VLA-Arena**: A benchmark for evaluating VLA safety, distractor robustness, extrapolation, and long-horizon behavior across L0-L2 difficulty levels
+- **RoboDojo**: An Isaac Sim benchmark for generalist bimanual robot manipulation
 - **Simpler**: A framework for evaluating and reproducing real-world robot manipulation policies (e.g., RT-1, RT-1-X, Octo) in simulation under common setups (e.g., Google Robot, WidowX+Bridge)
 - **RoboTwin 2.0**: A scalable data generator and benchmark with strong domain randomization for robust bimanual robotic manipulation
 - **ManiSkill2**: A benchmark for generalizable manipulation skill learning with diverse tasks and robot embodiments
@@ -55,6 +56,28 @@ docker run --gpus all --network host -v $(pwd):/workspace \
 docker run --gpus all --network host -v $(pwd):/workspace \
   docker.io/dexmal/dexbotic_benchmark:latest \
   bash /workspace/scripts/env_sh/libero.sh /workspace/evaluation/configs/libero/example_libero.yaml
+
+# Run RoboDojo evaluation
+git submodule update --init --recursive robodojo
+# Follow the official RoboDojo asset flow: download with Git LFS, then generate
+# the absolute paths used by CuRobo. On Ubuntu, install Git LFS once:
+sudo apt-get install -y git-lfs
+git lfs install
+bash robodojo/scripts/init_assets.sh
+(
+  cd robodojo
+  python utils/update_embodiment_config_path.py
+)
+ROBODOJO_ASSETS="$(cd robodojo && pwd -P)/Assets"
+
+docker run --rm --gpus all --network host --ipc host \
+  -e NVIDIA_DRIVER_CAPABILITIES=all \
+  -v "$(pwd):/workspace" \
+  -v "${ROBODOJO_ASSETS}:/workspace/robodojo/Assets:ro" \
+  -v "${ROBODOJO_ASSETS}:${ROBODOJO_ASSETS}:ro" \
+  -w /workspace \
+  dexmal/dexbotic_benchmark:latest \
+  bash /workspace/scripts/env_sh/robodojo.sh /workspace/evaluation/configs/robodojo/example_robodojo.yaml
 
 # Run Simpler evaluation
 docker run --gpus all --network host -v $(pwd):/workspace\
