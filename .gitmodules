@@ -28,3 +28,6 @@
 [submodule "robodojo"]
 	path = robodojo
 	url = https://github.com/RoboDojo-Benchmark/RoboDojo.git
+[submodule "genie_sim"]
+	path = genie_sim
+	url = https://github.com/AgibotTech/genie_sim.git

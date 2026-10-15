@@ -1,6 +1,6 @@
 # Dexbotic Benchmark
 
-A unified robot benchmarking framework that supports automated evaluation of CALVIN, LIBERO, VLA-Arena, RoboDojo, Simpler, RoboTwin 2.0, ManiSkill2, and VLN-CE environments.
+A unified robot benchmarking framework that supports automated evaluation of CALVIN, LIBERO, VLA-Arena, RoboDojo, GenieSim, Simpler, RoboTwin 2.0, ManiSkill2, and VLN-CE environments.
 
 ## Overview
 
@@ -10,6 +10,7 @@ Dexbotic Benchmark provides a comprehensive evaluation framework for robotic lea
 - **LIBERO**: A benchmark for learning robotic manipulation from human demonstrations
 - **VLA-Arena**: A benchmark for evaluating VLA safety, distractor robustness, extrapolation, and long-horizon behavior across L0-L2 difficulty levels
 - **RoboDojo**: An Isaac Sim benchmark for generalist bimanual robot manipulation
+- **GenieSim**: An Isaac Sim benchmark for instruction following, manipulation, spatial reasoning, robustness, and sim-to-real evaluation
 - **Simpler**: A framework for evaluating and reproducing real-world robot manipulation policies (e.g., RT-1, RT-1-X, Octo) in simulation under common setups (e.g., Google Robot, WidowX+Bridge)
 - **RoboTwin 2.0**: A scalable data generator and benchmark with strong domain randomization for robust bimanual robotic manipulation
 - **ManiSkill2**: A benchmark for generalizable manipulation skill learning with diverse tasks and robot embodiments
@@ -79,6 +80,19 @@ docker run --rm --gpus all --network host --ipc host \
   dexmal/dexbotic_benchmark:latest \
   bash /workspace/scripts/env_sh/robodojo.sh /workspace/evaluation/configs/robodojo/example_robodojo.yaml
 
+# Run GenieSim evaluation. The official image provides the `genie_sim`
+# environment; mount the complete matching GenieSim assets dataset at runtime.
+GENIESIM_ASSETS=/path/to/full/geniesim_assets
+docker run --rm --gpus all --network host --ipc host \
+  -e NVIDIA_DRIVER_CAPABILITIES=all \
+  -v "$(pwd):/workspace" \
+  -v "${GENIESIM_ASSETS}:/geniesim_assets" \
+  -w /workspace \
+  docker.io/dexmal/dexbotic_benchmark:latest \
+  bash -lc 'source /opt/conda/etc/profile.d/conda.sh &&
+    conda activate genie_sim &&
+    bash scripts/env_sh/genie_sim.sh evaluation/configs/genie_sim/example_genie_sim.yaml'
+
 # Run Simpler evaluation
 docker run --gpus all --network host -v $(pwd):/workspace\
   -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPABILITIES=all \
@@ -135,6 +149,14 @@ use the scenario-specific configs directly: `libero_spatial.yaml`,
 `libero_goal.yaml`, `libero_object.yaml`, or `libero_10.yaml`.
 
 Note: The Arena evaluator uses the same external Dexbotic model-server boundary as LIBERO. Select suites with `task_suite_name`, difficulty with `task_level`, and repeatable evaluation seeds with `seeds`. Parallel workers share the configured model service, and server-global sampling RNG prevents exact serial/parallel trajectory reproduction. For native local setup and troubleshooting, see the [VLA-Arena installation and evaluation guide](docs/local_install.md#vla-arena-environment).
+
+Note: The official image contains the GenieSim Python 3.11/Isaac Sim 5.1
+environment, but not the full assets dataset or model weights. GenieSim uses
+the repository's fixed `./genie_sim` checkout and an external model service
+configured by `base_url`. Task configs and seeds run serially; the default is
+one seed (`seeds: [1]`). See the [GenieSim installation and evaluation
+guide](docs/local_install.md#geniesim-environment) for suite configs, model API
+options, smoke checks, assets, and output layout.
 
 Note: RoboTwin2.0 has 50 sub-tasks, and each sub-task has two levels of difficulty. According to the official setting of RoboTwin2.0, each subtask needs to be evaluated separately. You can modify the `task_name` and `task_config` parameters in the configuration file to select different subtasks and difficulty levels for evaluation. ref: https://robotwin-platform.github.io/leaderboard
 

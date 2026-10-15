@@ -1,0 +1,30 @@
+task_name: g2op_if_pick_block_color
+# Seeds are evaluated serially in the listed order.
+seeds: [1]
+
+# Keep all episodes and selected scene instances inside one native
+# SimulationApp. Set num_instances to 0 to use every native instance.
+num_episodes: 1
+num_instances: 1
+
+base_url: http://localhost:7891
+endpoint: /process_frame
+# legacy: multipart POST to endpoint; v1: JSON POST to /v1/infer.
+api_style: legacy
+# Optional v1 sampling overrides:
+# sampling:
+#   num_steps: 10
+#   cfg_scale: 1.5
+temperature: 1.0
+action_horizon: 25
+request_timeout_sec: 120
+
+headless: true
+record_videos: false
+benchmark_timeout: 90m
+
+# Optional when the GenieSim environment does not already export these:
+# assets_path: /geniesim_assets
+# geniesim_python: omni_python
+
+output_dir: results/example_genie_sim

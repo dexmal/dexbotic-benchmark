@@ -298,6 +298,176 @@ export ROBODOJO_CACHE_CUROBO_PLANNERS=1
 The cache is process-local and keyed by planner YAML, joints, timestep, and
 table height; unset the variable to preserve the original planner lifecycle.
 
+## GenieSim Environment
+
+GenieSim runs the unmodified native benchmark from the repository's fixed
+`./genie_sim` checkout and calls an external VLA model service through a local
+WebSocket bridge. The project-level `Dockerfile` installs its Python 3.11
+environment at `/opt/conda/envs/genie_sim` alongside the other benchmark
+environments. It contains Isaac Sim 5.1.0.0 and the evaluator dependencies, so
+do not create a second environment inside the container.
+
+### Setup
+
+You can pull the published unified image or build from the root `Dockerfile`
+after initializing the benchmark source checkouts, including `./genie_sim`.
+The build uses the repository root as its context:
+
+```bash
+# Use the published image:
+docker pull docker.io/dexmal/dexbotic_benchmark:latest
+
+# Or build the unified image from source.
+docker build -t dexbotic-benchmark:latest .
+```
+
+The build checks the native interpreter's CPU-side imports and ROS message
+serialization. Resolved packages are recorded in
+`/opt/conda/envs/genie_sim/share/requirements-resolved.txt`. The assets SDK,
+full asset dataset and model weights are supplied separately at runtime.
+
+First, download the complete
+[GenieSimAssets dataset](https://huggingface.co/datasets/agibot-world/GenieSimAssets)
+on the host. It includes the asset files, `pyproject.toml`, and Python SDK.
+Run these commands in a host Python environment; set `GENIESIM_ASSETS` to an
+absolute path if you want to use another disk:
+
+```bash
+python3 -m pip install -U huggingface_hub
+GENIESIM_ASSETS="${GENIESIM_ASSETS:-${HOME}/.cache/geniesim_assets}"
+export HF_HUB_ETAG_TIMEOUT=120
+export HF_HUB_DOWNLOAD_TIMEOUT=120
+hf download agibot-world/GenieSimAssets --repo-type dataset \
+  --local-dir "${GENIESIM_ASSETS}"
+```
+
+After an interruption, re-run the same download command with the same directory.
+Keep its `.cache/huggingface` metadata so the CLI can reuse files already downloaded.
+If direct Hugging Face access fails, set `HF_ENDPOINT=https://hf-mirror.com`
+and retry. See the [Hugging Face CLI guide](https://huggingface.co/docs/huggingface_hub/guides/cli#download-to-a-local-folder)
+for details about local downloads.
+
+Once the download completes, mount `${GENIESIM_ASSETS}` at `/geniesim_assets`.
+The writable mount lets the SDK installation create package metadata. Set
+`BENCHMARK_IMAGE=dexbotic-benchmark:latest` to run a locally built image;
+otherwise the published image is used:
+
+```bash
+BENCHMARK_IMAGE=${BENCHMARK_IMAGE:-docker.io/dexmal/dexbotic_benchmark:latest}
+
+docker run --rm -it --gpus all --network host --ipc host \
+  -e NVIDIA_DRIVER_CAPABILITIES=all \
+  -v "$(pwd):/workspace" \
+  -v "${GENIESIM_ASSETS}:/geniesim_assets:rw" \
+  -w /workspace \
+  "${BENCHMARK_IMAGE}" \
+  bash
+```
+
+Inside each new container, activate the environment and install the assets SDK
+from the mounted checkout. `--no-deps` preserves the image's installed simulator
+dependencies:
+
+```bash
+conda activate genie_sim
+python -m pip install --no-deps --no-build-isolation -e /geniesim_assets
+genie_python -c 'import geniesim_assets, ik_solver; print(geniesim_assets.ASSETS_PATH)'
+```
+
+The image supplies `GENIESIM_PY_CMD`/`omni_python`. The native launcher defaults
+`SIM_ASSETS` and `GENIESIM_ASSETS_PATH` to `/geniesim_assets`. To use another
+asset location, install the SDK from that location and set `assets_path` in
+the evaluation YAML or export both asset variables before starting the evaluator.
+
+The VLA service is not part of the evaluator container. Start it separately
+and make it reachable through the configured `base_url`; the examples use
+`http://localhost:7891` together with Docker host networking.
+
+### Running Evaluation
+
+```bash
+# Run one task with the example configuration.
+bash scripts/env_sh/genie_sim.sh \
+  evaluation/configs/genie_sim/example_genie_sim.yaml
+
+python3 evaluation/run_genie_sim_evaluation.py \
+  --config evaluation/configs/genie_sim/example_genie_sim.yaml \
+  --set task_name g2op_if_pick_block_color \
+  --set seeds 1 \
+  --set base_url http://localhost:7891 \
+```
+
+The native catalog currently contains 86 task configs across five top-level
+suites: instruction following (10), manipulation (10), spatial reasoning (8),
+robustness (50), and sim-to-real (8). Robustness comprises five ten-task
+variants: background, camera position, camera quality, instruction, and object
+pose generalization.
+
+The main GenieSim options are:
+
+- `task_name`: one native config name.
+- `task_configs`: a YAML list (or comma-separated override) of native configs.
+  Configs execute serially.
+- `seeds`: one or more evaluation seeds, also executed serially. The provided
+  configs default to `seeds: [1]`; there is no implicit seed sweep.
+- `num_episodes`: positive integer override, or `native` to preserve the value
+  in each native task YAML.
+- `num_instances`: number of native scene instances to sample. Use `0` or omit
+  the option to let GenieSim use all available instances.
+- `action_horizon`: maximum returned action chunk length; the examples use 25.
+- `api_style`: `legacy` sends multipart requests to `endpoint` (default
+  `/process_frame`); `v1` sends JSON to `v1_endpoint` (default `/v1/infer`) and
+  notifies `/v1/reset` when the episode changes. Optional `sampling` values are
+  forwarded only by the v1 client.
+- `record_videos`: disabled by default to avoid recording overhead. When
+  enabled, a native success without a `.webm` artifact is treated as a failed
+  evaluation.
+- `benchmark_timeout`: per-task/seed native-process timeout, such as `90m`.
+- `base_url`: external VLA service URL.
+- `output_dir`: unified result directory.
+
+One task-config/seed pair owns one native SimulationApp; all of that unit's
+episodes and scene instances run inside it. The local policy bridge and its
+HTTP session stay warm across serial units. No parallel lanes or machine-wide
+lock are used, so run only one GenieSim evaluation on a machine at a time.
+
+Each run writes the standard `results.json`, resolved `config.yaml`, and
+evaluation log below `output_dir`. Native artifacts are copied incrementally to
+`raw/GenieSim/<task>/seed_<seed>/benchmark`, with `native.log` and per-unit
+`metadata.json` alongside them. The upstream `./genie_sim` source is never
+patched; an outer native wrapper propagates worker-thread failures as a nonzero
+process exit.
+
+In `results.json`, `completed_units` counts normally completed task/seed runs,
+and `failed_units` counts failed runs. Episode success is reported separately
+by `successful_episodes` and `success_rate`.
+
+After the last selected task/seed in each suite, the console and evaluation log
+also report `genie_sim suite=<suite> official_score=<score>`. Robustness variants are
+combined into the `robust` suite. The metric is
+`sample_weighted_native_step_score`: take the mean of each native result's
+`statistics.weighted_step_scores`, then weight those means by the episode
+counts in `statistics.task_counts`. Native rounding and checker semantics are
+preserved; `statistics.average`, episode `STEPS`, and E2E success can differ.
+`official_score` exposes this native aggregate.
+
+Following the RoboColiseum leaderboard terminology, `weighted_score` directly
+averages each sample's `result.scores.STEPS`, then weights task scores by their
+sample counts. Its metric name is
+`sample_count_weighted_episode_step_score`. Repeated native checker names can
+make this value differ from `official_score`.
+
+`results.json` includes the overall `weighted_score`, `official_score`,
+`weighted_score_metric`, `official_score_metric`, and per-suite `suite_scores`
+with counts and scoring errors. Each task/seed's `metadata.json` also includes
+`weighted_score`, `official_score`, and their scoring errors.
+Scores cover the selected tasks and seeds, including subset runs. Failed units,
+missing step scores, or inconsistent episode counts produce a null official
+score and an unavailable message instead of a partial score.
+
+To inspect a completed run, read the suite's official-score line in
+`output_dir/logs/evaluation.log` or its entry in `results.json`'s `suite_scores`.
+
 ## CALVIN Environment
 
 ### Setup

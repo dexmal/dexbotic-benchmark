@@ -96,6 +96,7 @@ COPY habitat-lab /app/habitat-lab
 COPY VLN-CE /app/VLN-CE
 COPY arena /app/arena
 COPY robodojo /app/robodojo
+COPY genie_sim /app/genie_sim
 
 # Install simpler environment
 RUN /opt/conda/bin/conda create -n simpler_env python=3.10 -y && \
@@ -244,8 +245,74 @@ RUN /opt/conda/bin/conda create -n arena python=3.11 pip=25.3 -y && \
         tqdm \
         Pillow
 
+# Install GenieSim in its own Python 3.11 environment.
+# The assets SDK is installed from the mounted assets checkout at runtime.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libtinyxml2.6.2v5 libminizip1 && \
+    rm -rf /var/lib/apt/lists/*
+RUN /opt/conda/bin/conda create -n genie_sim python=3.11 pip=25.3 -y && \
+    /opt/conda/bin/conda run --no-capture-output -n genie_sim /bin/bash -c "\
+        cd /app/genie_sim && \
+        export PIP_USER=0 PYTHONNOUSERSITE=1 PIP_NO_INPUT=1 && \
+        export ACCEPT_EULA=Y OMNI_KIT_ACCEPT_EULA=Y && \
+        python -m pip install --upgrade 'setuptools>=70,<81' 'wheel==0.45.1' && \
+        python -m pip install \
+            'isaacsim[all,extscache]==5.1.0.0' \
+            --extra-index-url https://pypi.nvidia.com \
+            numpy==1.26.0 \
+            scipy==1.15.3 \
+            opencv-python-headless==4.11.0.86 \
+            websockets==12.0 \
+            omegaconf==2.3.0 \
+            colorama future msgpack openai==1.109.1 PyYAML shapely trimesh \
+            requests Pillow imageio imageio-ffmpeg tqdm transforms3d networkx \
+            'mujoco>=3.6.0,<3.9.0' tomli Cython==0.29.37 && \
+        python -m pip install --no-build-isolation grasp_nms==1.0.2 && \
+        python -m pip install --no-deps \
+            3rdparty/ik_solver-0.4.3-cp311-cp311-linux_x86_64.whl && \
+        python -m pip install --no-deps --no-build-isolation \
+            -e source/geniesim_cli -e source/geniesim_benchmark && \
+        mkdir -p /opt/conda/envs/genie_sim/share && \
+        python -m pip freeze --all \
+            > /opt/conda/envs/genie_sim/share/requirements-resolved.txt"
+
+# Set up the native interpreter with Isaac Sim's bundled ROS bridge.
+RUN printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'set -eo pipefail' \
+    'PREFIX=/opt/conda/envs/genie_sim' \
+    'ISAAC_ROOT="${PREFIX}/lib/python3.11/site-packages/isaacsim"' \
+    'export PATH="${PREFIX}/bin:${PATH}"' \
+    'export PYTHONNOUSERSITE=1 ACCEPT_EULA=Y OMNI_KIT_ACCEPT_EULA=Y' \
+    'export GENIESIM_SKIP_AUTOBOOT=1 GENIESIM_PY_CMD=/usr/local/bin/genie_python' \
+    'export SIM_REPO_ROOT="${SIM_REPO_ROOT:-/app/genie_sim}"' \
+    'export GENIESIM_REPO_PATH="${GENIESIM_REPO_PATH:-${SIM_REPO_ROOT}}"' \
+    'export GENIESIM_ASSETS_PATH="${GENIESIM_ASSETS_PATH:-/geniesim_assets}"' \
+    'export SIM_ASSETS="${SIM_ASSETS:-${GENIESIM_ASSETS_PATH}}"' \
+    'export ROS_DISTRO="${ROS_DISTRO:-humble}"' \
+    'export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}"' \
+    'BRIDGE="${ISAAC_ROOT}/exts/isaacsim.ros2.bridge/${ROS_DISTRO}"' \
+    'if [[ -d "${BRIDGE}/lib" ]]; then' \
+    '    export LD_LIBRARY_PATH="${BRIDGE}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"' \
+    'fi' \
+    'if [[ -d "${BRIDGE}/rclpy" ]]; then' \
+    '    export PYTHONPATH="${BRIDGE}/rclpy${PYTHONPATH:+:${PYTHONPATH}}"' \
+    'fi' \
+    'exec "${PREFIX}/bin/python" "$@"' \
+    > /usr/local/bin/genie_python && \
+    chmod 0755 /usr/local/bin/genie_python && \
+    ln -s /usr/local/bin/genie_python /opt/conda/envs/genie_sim/bin/omni_python
+RUN /usr/local/bin/genie_python -c \
+    'import cv2, msgpack, ik_solver, geniesim_cli; from rclpy.serialization import serialize_message; from sensor_msgs.msg import Image; assert serialize_message(Image())'
+
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics \
-    PATH=/opt/conda/envs/arena/bin:$PATH
+    PATH=/opt/conda/envs/arena/bin:$PATH \
+    GENIESIM_PY_CMD=/usr/local/bin/genie_python \
+    GENIESIM_SKIP_AUTOBOOT=1
+
+LABEL io.dexmal.genie_sim.environment="/opt/conda/envs/genie_sim" \
+      io.dexmal.genie_sim.isaacsim.version="5.1.0.0" \
+      io.dexmal.genie_sim.assets.included="none"
 
 RUN /opt/conda/bin/conda init bash
 
